@@ -1,8 +1,6 @@
 require('dotenv').config()
 const Lyricist = require('lyricist')
-const bigquery = require('@google-cloud/bigquery')({
-  credentials: JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS)
-})
+const bigquery = require('@google-cloud/bigquery')()
 const filterRecursiveKeys = require('./filterRecursiveKeys')
 const fs = require('fs')
 
