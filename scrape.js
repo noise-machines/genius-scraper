@@ -8,6 +8,7 @@ const lyricist = new Lyricist(GENIUS_API_KEY)
 
 const dataset = bigquery.dataset('lyrics')
 const table = dataset.table('songs')
+const errorsTable = dataset.table('song_retrieval_errors')
 
 const wait = delay =>
   new Promise((resolve, reject) => {
@@ -45,6 +46,34 @@ async function saveToBigQuery(song) {
   }
 }
 
+async function getErrorAlreadySaved(songId) {
+  const query = `SELECT COUNT(id) FROM lyrics.song_retrieval_errors WHERE id = ${songId};`
+  const response = await bigquery.query(query)
+  const count = response[0][0].f0_
+  const alreadySaved = count && count > 0
+  if (alreadySaved)
+    console.log(`Retrieval error for song ${songId} was already saved`)
+  return alreadySaved
+}
+
+async function saveErrorToBigQuery(songId, error) {
+  console.log(`Trying to save error for song ${songId}`)
+  try {
+    const alreadySaved = await getErrorAlreadySaved(songId)
+    if (!alreadySaved) {
+      const options = { ignoreUnknownValues: true }
+      const response = await errorsTable.insert(
+        { id: songId, error: JSON.stringify(error) },
+        options
+      )
+      console.log('Saved error: ' + JSON.stringify(response))
+      return response
+    }
+  } catch (error) {
+    console.log(`Couldn't save song retrieval error ${songId}`)
+  }
+}
+
 async function startAndSaveToLocalJSON() {
   while (true) {
     const song = await getNextSong()
@@ -70,14 +99,13 @@ async function startAndSaveToBiqQuery() {
       id += 1
       const song = await getNextSong(id)
       if (song) {
-        saveToBigQuery(song)
+        await saveToBigQuery(song)
       }
     } catch (err) {
-      const line = id + ' // ' + JSON.stringify(err) + '\n'
-      fs.appendFileSync('./error-ids.json', line)
+      saveErrorToBigQuery(id, err)
     }
     fs.writeFileSync('./last-id.json', id)
-    await wait(500)
+    await wait(1000)
   }
 }
 
