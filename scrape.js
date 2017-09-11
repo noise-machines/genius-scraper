@@ -105,7 +105,6 @@ async function startAndSaveToBiqQuery() {
       saveErrorToBigQuery(id, err)
     }
     fs.writeFileSync('./last-id.json', id)
-    await wait(1000)
   }
 }
 
